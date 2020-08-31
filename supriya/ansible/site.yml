@@ -3,5 +3,5 @@
 - name: Installing the jenkins with ansible
   hosts: localhost
   roles:
-    - java
+    - Java
     - Jenkins
