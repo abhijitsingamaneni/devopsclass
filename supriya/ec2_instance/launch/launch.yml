@@ -20,7 +20,7 @@
          monitoring: yes
          vpc_subnet_id: subnet-271b195d
          assign_public_ip: yes
-         group: default
+         group: default         
       register: ec2
 
    
