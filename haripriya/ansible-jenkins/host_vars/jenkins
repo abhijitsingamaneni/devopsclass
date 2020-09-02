@@ -1,0 +1,7 @@
+---
+plugins:
+  - 'git'
+  - 'copyartifact'
+  - 'build-pipeline-plugin'
+port: 8080
+prefix: '/build'

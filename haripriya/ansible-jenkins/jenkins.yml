@@ -1,0 +1,7 @@
+# Install jenkins using ansible playbook
+
+- name: Install jenkins
+  hosts: jenkins
+  roles:
+    - java
+    - jenkins
