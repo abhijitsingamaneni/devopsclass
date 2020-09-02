@@ -1,0 +1,14 @@
+- name: ec2 launcer
+  hosts: localhost
+  tasks:
+          - name: launching ec2
+            ec2:
+                 key_name: Rahulec2
+                 instance_type: t2.micro
+                 image: ami-07c8bc5c1ce9598c3
+                 region: us-east-2
+                 wait: yes
+                 group: default
+                 count: 1
+                 vpc_subnet_id: subnet-082e8f3234dabd893
+                 assign_public_ip: yes
