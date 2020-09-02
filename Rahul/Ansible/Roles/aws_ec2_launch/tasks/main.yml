@@ -1,3 +1,5 @@
+---
+
 - name: ec2 launcer
   hosts: localhost
   tasks:
