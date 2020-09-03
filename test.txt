@@ -4,20 +4,17 @@ this is a devops class
 this is a git hub class
 this is Anith
 this is abhijit
-this is vishwa  
-This is git hub-2
-This is my another file
+this is vishwa
+this is git hub-2
+this is my another file
 this is sirisha
 this is corrected by sirisha
-<<<<<<< HEAD
 this is sumanth
-=======
-This is Supriya
+this is supriya
 this is rahul
->>>>>>> 138ecf3ff5afd585da833206f4064aca57138217
-this is edited by vissshal
+this is edited by vishal
 this line added by Haripriya
 Added another line by anith
-Added by kpriya
-Added by sirisha
-Added by sumanth
+added by kpriya
+added by sirisha
+added by sumanth
