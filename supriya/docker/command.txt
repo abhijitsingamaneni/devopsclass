@@ -1,0 +1,34 @@
+    1  yum update -y
+    2  yum install docker -y
+    3  docker -v
+    4  service docker start
+    5  docker status
+    6  docker --help
+    7  docker info
+    8  docker images
+    9  exit
+   10  service start --help
+   11  service docker start
+   12  docker pull abhijit1417/terraform2:1.0
+   13  docker run -it abhijit1417/terraform2:1.0
+   14  docker ps
+   15  docker ps -a
+   16  docker run -it abhijit1417/terraform2:1.0 /bin/bash
+   17  docker run -it abhijit1417/terraform2:1.0 /bin/bash -name docker_supriya
+   18  docker run -it abhijit1417/terraform2:1.0 /bin/bash --name docker_supriya
+   19  docker run -it abhijit1417/terraform2:1.0 --name docker_supriya
+   20  docker run -it --name container_supriya abhijit1417/terraform2:1.0
+   21  docker run -it --name container_supriya abhijit1417/terraform2:1.0
+   22  docker run -it --name container_supriya2 abhijit1417/terraform2:1.0
+   23  docker ps -a
+   24  docker run -d --name container3 abhijit1417/terraform2:1.0
+   25  docker ps
+   26  docker ps -a
+   27  service docker start
+   28  docker ps -a
+   29  docker login
+   30  docker push supriyasiddineni/terraform:tagname
+   31  docker run -it abhijit1417/terraform2:1.0 --name container3
+   32  docker run -it abhijit1417/terraform2:1.0 --name container3
+   33   docker run -it --name container_3 abhijit1417/terraform2:1.0
+   34  docker push supriyasiddineni/terraform:container3

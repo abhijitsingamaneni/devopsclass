@@ -1,0 +1,26 @@
+---
+- hosts: localhost
+  connection: local
+  tasks:
+    - name: Provision EC2 instance
+      ec2:
+         key_name: AWS-Ansible
+         region: us-east-2
+         instance_type: t2.micro
+         image: ami-0f4aeaec5b3ce9152
+         wait: yes
+         wait_timeout: 500
+         count: 1
+         instance_tags:
+            Name: AWS-Ansible
+         volumes:
+            - device_name: /dev/xvda
+              volume_type: gp2
+              volume_size: 8
+         monitoring: yes
+         vpc_subnet_id: subnet-271b195d
+         assign_public_ip: yes
+         group: default         
+      register: ec2
+
+   
