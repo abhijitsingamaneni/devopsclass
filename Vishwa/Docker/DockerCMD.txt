@@ -1,0 +1,44 @@
+  457  docker pull abhijit1417/terraform2
+  458  clear
+  459  cd ../..
+  460  ls
+  461  cd ../
+  462  cd ../
+  463  cd ~
+  464  cd Downloads/
+  465  ssh -i "Kvk.pem" ec2-user@ec2-3-93-65-41.compute-1.amazonaws.com
+  466  docker run -d -p 80:80 docker/getting-started
+  467  docker pull rocker/verse
+  468  docker login --username=vishwakrishna19 --email=kaveti.vishwakrishna@gmail.com
+  469  docker login --username=vishwakrishna19 --password=kanna.kvk
+  470  docker images
+  471  docker ps -a
+  472  docker start
+  473  docker start --help
+  474  docker pull abhijit1417/terraform2:1.0
+  475  docker run -it abhijit1417/terraform2:1.0
+  476  docker run -i abhijit1417/terraform2:1.0
+  477  docker images
+  478  docker images5
+  479  docker images
+  480  docker container run -it
+  481  docker ps -a
+  482  docker pull ubuntu
+  483  docker images
+  484  docker run -it 4e2eef94cd6b
+  485  winpty docker run -it 4e2eef94cd6b
+  486  docker ps -a
+  487  docker ps -a
+  488  docker ps -a
+  489  docker commit b71cada89d18
+  490  docker images
+  491  docker tag 6025427082d8 alpha
+  492  docker images
+  493  docker tag 6025427082d8 vishwakrishna19/beta:test
+  494  docker push vishwakrishna19/beta:test
+  495  docker rmi 6b36433c7137 1f32459ef038
+  496  docker images
+  497  docker ps -a
+  498  docker images -a
+  499  exit
+
