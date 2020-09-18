@@ -1,0 +1,42 @@
+1  docker run hello-world
+    2  docker ps -a
+    3  docker run -it ubuntu /bin/bash
+    4  history
+    5  sudo service docker status
+    6  docker run -it priyahari/ubuntu
+    7  docker push priyahari/ubuntu:tagname
+    8  docker images
+    9  sudo docker login
+   10  sudo docker tag  bb0eaf4eee00 priyahari/ubuntu:testcontainer
+   11  sudo docker images
+   12  sudo docker push priyahari/ubuntu
+   13  history
+   14  git add .
+   15  ls
+   16  exit
+   17  sudo yum update
+   18  sudo yum instakk docker -y
+   19  sudo yum install docker -y
+   20  sudo yum update -y
+   21  sudo service docker status
+   22  sudo service docker start
+   23  sudo amazon-linux-extras install docker
+   24  sudo yum install docker
+   25  sudo service docker start
+   26  sudo usermod -a -g docker ec2-user
+   27  docker info
+   28  sudo docker info
+   29  docker images
+   30  sudo apt install git-all
+   31  sudo dnf install git-all
+   32  docker -version
+   33  docker --version
+   34  sudo service docker status
+   35  sudo docker pull ubuntu
+   36  sudo docker run -it ubuntu /bin/bash
+   37  sudo curl -sSL https://get.docker.com/ | sh
+   38  docker version
+   39   sudo groupadd docker
+   40  sudo usermod -aG docker $USER
+   41  newgrp docker
+
