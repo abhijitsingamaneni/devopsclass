@@ -1,0 +1,132 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Metadata": {
+
+    },
+    "Parameters": {
+
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+"AutoVPC": {
+  "Type": "AWS::EC2::VPC",
+  "Properties": {
+    "CidrBlock": "10.0.0.0/16",
+    "Tags": [{ "Key": "Name", "Value":  "AutoVPC" }]
+  }
+},
+  "AutoSubnet01": {
+    "Type": "AWS::EC2::Subnet",
+    "Properties": {
+      "AvailabilityZone": "us-east-1a",
+      "VpcId": { "Ref" : "AutoVPC" },
+      "CidrBlock": "10.0.0.0/26",
+      "Tags": [{ "Key": "Name", "Value":  "Auto-subnet01" },{ "Key": "subnet-Type", "Value":  "public" }]
+    }
+  },
+  "AutoSubnet02":{
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "AvailabilityZone": "us-east-1a",
+        "VpcId": { "Ref" : "AutoVPC" },
+        "CidrBlock": "10.0.0.64/26",
+        "Tags": [{ "Key": "Name", "Value":  "Auto-subnet02" },{ "Key": "subnet-Type", "Value":  "private" }]
+      }
+    },
+
+"AutoIG" : {
+      "Type" : "AWS::EC2::InternetGateway",
+      "Properties" : {
+        "Tags" : [ {"Key" : "Name", "Value" : "AutoIG"}]
+      }
+   },
+
+"AutoGatewayToInternet":  {
+     "Type" : "AWS::EC2::VPCGatewayAttachment",
+     "Properties" : {
+         "InternetGatewayId" : { "Ref" : "AutoIG" },
+         "VpcId" : { "Ref" : "AutoVPC" }
+       }
+   },
+
+"AutoPublicRouteTable" : {
+  "Type" : "AWS::EC2::RouteTable",
+  "Properties" : {
+      "VpcId" : { "Ref" : "AutoVPC" },
+      "Tags" : [ {"Key" : "Name", "Value" : "AutoPublicRouteTable"} ]
+    }
+},
+
+"AutoPublicRoute" : {
+   "Type" : "AWS::EC2::Route",
+   "DependsOn" : "AutoGatewayToInternet",
+   "Properties" : {
+      "RouteTableId" : { "Ref" : "AutoPublicRouteTable" },
+      "DestinationCidrBlock" : "0.0.0.0/0",
+      "GatewayId" : { "Ref" : "AutoIG" }
+   }
+},
+
+"AutoPublicSubnetRouteTableAssociation" : {
+   "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties" : {
+      "SubnetId" : { "Ref" : "AutoSubnet01" },
+      "RouteTableId" : { "Ref" : "AutoPublicRouteTable" }
+   }
+},
+
+
+"AutoNAT" : {
+   "Type" : "AWS::EC2::NatGateway",
+   "Properties" : {
+      "AllocationId" : { "Fn::GetAtt" : ["AutoEIP", "AllocationId"]},
+      "SubnetId" : { "Ref" : "AutoSubnet02"},
+      "Tags" : [ {"Key" : "Name", "Value" : "AutoNAT" } ]
+     }
+},
+"AutoEIP" : {
+   "DependsOn" : "AutoVPC",
+   "Type" : "AWS::EC2::EIP",
+   "Properties" : {
+      "Domain" : "vpc"
+   }
+},
+
+"AutoPrivateRouteTable" : {
+  "Type" : "AWS::EC2::RouteTable",
+  "Properties" : {
+      "VpcId" : { "Ref" : "AutoVPC" },
+      "Tags" : [ {"Key" : "Name", "Value" : "AutoPrivateRouteTable"}]
+    }
+},
+"AutoPrivateRoute" : {
+   "Type" : "AWS::EC2::Route",
+   "Properties" : {
+      "RouteTableId" : { "Ref" : "AutoPrivateRouteTable" },
+      "DestinationCidrBlock" : "0.0.0.0/0",
+      "NatGatewayId" : { "Ref" : "AutoNAT" }
+   }
+},
+
+"AutoPrivateSubnetRouteTableAssociation" : {
+   "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+   "Properties" : {
+      "SubnetId" : { "Ref" : "AutoSubnet02" },
+      "RouteTableId" : { "Ref" : "AutoPrivateRouteTable" }
+   }
+},
+
+
+
+  },
+    "Outputs": {
+
+    }
+}
+
