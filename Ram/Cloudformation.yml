@@ -1,0 +1,59 @@
+Resources:
+      VPC:
+        Type: AWS::EC2::VPC
+        Properties:
+          CidrBlock: 10.0.0.0/16
+          Tags:
+          - Key: Name
+            Value:  !Join ['', [!Ref "AWS::StackName", "-VPC" ]]
+
+      PublicSubnet:
+        Type: AWS::EC2::Subnet
+        Properties:
+          VpcId: !Ref VPC
+          AvailabilityZone: !Select [ 0, !GetAZs ]
+          CidrBlock: 10.0.0.0/25
+          MapPublicIpOnLaunch: true
+          Tags:
+          - Key: Name
+            Value: !Sub ${AWS::StackName}-Public
+
+      PrivateSubnet:
+        Type: AWS::EC2::Subnet
+        Properties:
+          VpcId: !Ref VPC
+          AvailabilityZone: !Select [ 1, !GetAZs ]
+          CidrBlock: 10.0.0.128/25
+          MapPublicIpOnLaunch: false
+          Tags:
+          - Key: Name
+            Value: !Sub ${AWS::StackName}-Private
+
+      IG:
+        Type: AWS::EC2::InternetGateway
+        Properties:
+          Tags:
+          - Key: Name
+            Value: !Join [_, [!Ref 'AWS::StackName']]
+
+      GatewayToInternet:
+        Type: AWS::EC2::VPCGatewayAttachment
+        Properties:
+          VpcId: !Ref VPC
+          InternetGatewayId: !Ref IG
+
+      PublicRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+          VpcId: !Ref VPC
+          Tags:
+          - Key: Name
+            Value: Public
+
+      PublicRoute:
+        Type: AWS::EC2::Route
+        DependsOn: GatewayToInternet
+        Properties:
+          RouteTableId: !Ref PublicRouteTable
+          DestinationCidrBlock: 0.0.0.0/0
+          GatewayId: !Ref IG
