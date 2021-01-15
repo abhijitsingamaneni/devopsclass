@@ -1,0 +1,193 @@
+AWSTemplateFormatVersion: 2010-09-09
+# This CloudFormation template deploys a basic VPC / Network. 
+Resources:
+  # first VPC, a VPC:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnabledDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: !Join ['', [!Ref "AWS::StackName", "-VPC" ]]
+
+  # Internet access for the created VPC.
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  # DependsOn: VPC
+  # AttachGateway:
+  #  Type: AWS::EC2::VPCGatewayAttachment
+  # You can't attach an IG to VPC unless both are created.
+  # Properties:
+  # VpcId: !Ref VPC
+  # InternetGatewayId: !Ref InternetGateway
+
+  # Creating public Subnet
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [ 0, !GetAZs ]    # Get the first AZ in the list 
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-Public
+
+  # Creating private Subnet
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Condition: BuildPrivate
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select [ 0, !GetAZs ]    # Get the first AZ in the list
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-Private
+
+  # Route table for the Subnet
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: Public
+  PublicRoute1:   # Public route table has direct routing to IGW:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  # Here is a private route table:
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Condition: BuildPrivateSubnets
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: Private
+  PrivateRoute1: # Private route table can access web via NAT (created below)
+    Type: AWS::EC2::Route
+    Condition: BuildPrivateSubnets
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      # If we are using a NAT Instance, route traffic through the NAT Instance:
+      InstanceId:   !If [ BuildNATInstance, !Ref NATInstance, !Ref "AWS::NoValue" ]
+      # Otherwise if we are using a NAT Gateway, route traffic through the NAT Gateway:
+      NatGatewayId: !If [ BuildNATGateway, !Ref NATGateway, !Ref "AWS::NoValue" ]
+
+  # Attaching the public and private subnet to the route table.
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+  PrivateSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: BuildPrivate
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref PrivateRouteTable
+
+   # A security group for our NAT.  Ingress from the VPC IPs only.  Egress is TCP & UDP only:
+  NATSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: BuildNATInstance
+    DependsOn: AttachGateway
+    Properties:
+      GroupName: !Sub NATSecurityGroup-${AWS::StackName}
+      GroupDescription: Enable internal access to the NAT device
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '0'
+        ToPort: '1024'
+        CidrIp: !GetAtt VPC.CidrBlock
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: '0'
+        ToPort: '65535'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: udp
+        FromPort: '0'
+        ToPort: '65535'
+        CidrIp: 0.0.0.0/0
+ 
+ # A NAT Instance will be built and used if the user selected Private subnets and specified an EC2 instance over a managed Gateway.  
+  NATInstance:
+    Type: AWS::EC2::Instance
+    Condition: BuildNATInstance
+    DependsOn: PublicRoute1                                           # Must have route to IGW established.
+    Properties:
+      ImageId: !FindInMap [ AmazonLinuxAMI, !Ref "AWS::Region", AMI]  # We lookup the AMI from the Region Map
+      InstanceType: t2.small                                          # Any instance type is fine
+      NetworkInterfaces:
+      - DeviceIndex: '0'
+        SubnetId: !Ref PublicSubnet                                  # Any public subnet is fine
+        AssociatePublicIpAddress: true                                # We will definitely need a public IP address
+        GroupSet: [!Ref NATSecurityGroup]                             # Plug in the security group
+      SourceDestCheck: false                                          # NATs don't work if EC2 tries the match source addresses with destinations.
+      Tags:
+      - Key: Name
+        Value: !Sub NAT-${AWS::StackName}
+      UserData:      #  This code is NAT code.  Look at how the last line signals the wait condition:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum -y update
+          yum install -y aws-cfn-bootstrap
+          echo 1 > /proc/sys/net/ipv4/ip_forward
+          echo 0 > /proc/sys/net/ipv4/conf/eth0/send_redirects
+          /sbin/iptables -t nat -A POSTROUTING -o eth0 -s 0.0.0.0/0 -j MASQUERADE
+          /sbin/iptables-save > /etc/sysconfig/iptables
+          mkdir -p /etc/sysctl.d/
+          cat << NatConfFileMarker > /etc/sysctl.d/nat.conf
+          net.ipv4.ip_forward = 1
+          net.ipv4.conf.eth0.send_redirects = 0
+          NatConfFileMarker
+          /opt/aws/bin/cfn-signal -e 0 --resource NATInstance --stack ${AWS::StackName} --region ${AWS::Region}
+    # This NATInstance is only complete when you get 1 signal back within 5 minutes'.
+    CreationPolicy:
+      ResourceSignal:
+        Count: 1
+        Timeout: PT5M
+
+  # A NAT Gateway will be built and used if the user selected Private subnets and a Gateway instead of an EC2 instance.  
+  NATGateway:
+    Type: AWS::EC2::NatGateway
+    Condition: BuildNATGateway
+    Properties: 
+      AllocationId: !GetAtt ElasticIPAddress.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags: 
+      - Key: Name
+        Value: !Sub NAT-${AWS::StackName}
+  ElasticIPAddress:
+    Type: AWS::EC2::EIP
+    Condition: BuildNATGateway
+    Properties:
+      Domain: VPC
+
+
+Outputs:
+  VPC:
+    Description: VPC of the base network
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${AWS::StackName}-VPC
+  PublicSubnet:
+    Description: First Public Subnet
+    Value: !Ref PublicSubnet
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicSubnet
+  PrivateSubnet:
+    Condition: BuildPrivateSubnets
+    Description: First Private Subnet
+    Value: !Ref PrivateSubnet
+    Export:
+      Name: !Sub ${AWS::StackName}-PrivateSubnet
