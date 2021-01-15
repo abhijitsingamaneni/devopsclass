@@ -1,0 +1,131 @@
+# Usage:
+    #   aws cloudformation --region <region> create-stack --stack-name <stack name> --template-body file://vpc-fargate.yaml
+    
+    # This template will:
+    #   Create a VPC with:
+    #       2 Public Subnets
+    #       2 Private Subnets
+    #   An Internet Gateway (with routes to it for Public Subnets)
+    #   A NAT Gateway for outbound access (with routes from Private Subnets set to use it)
+    #     
+    Resources:
+      PubPrivateVPC:
+        Type: 'AWS::EC2::VPC'
+        Properties:
+          CidrBlock: 172.31.0.0/16
+     
+      PublicSubnet1:
+        Type: 'AWS::EC2::Subnet'
+        Properties:
+          VpcId: !Ref PriyaVPC
+          AvailabilityZone: us-east-1a
+          CidrBlock: 172.31.1.0/24
+          MapPublicIpOnLaunch: true
+     
+      PublicSubnet2:
+        Type: 'AWS::EC2::Subnet'
+        Properties:
+          VpcId: !Ref PriyaVPC
+          AvailabilityZone: us-east-1b
+          CidrBlock: 172.31.2.0/24
+          MapPublicIpOnLaunch: true
+     
+      PrivateSubnet1:
+        Type: 'AWS::EC2::Subnet'
+        Properties:
+          VpcId: !Ref PriyaVPC
+          AvailabilityZone: us-east-1a
+          CidrBlock: 172.31.3.0/24
+          MapPublicIpOnLaunch: false
+     
+      PrivateSubnet2:
+        Type: 'AWS::EC2::Subnet'
+        Properties:
+          VpcId: !Ref PriyaVPC
+          AvailabilityZone: us-east-1b
+          CidrBlock: 172.31.4.0/24
+          MapPublicIpOnLaunch: false
+     
+      
+      InternetGateway:
+        Type: 'AWS::EC2::InternetGateway'
+        Properties:
+          Tags:
+            - Key: Name
+              Value: !Join [_, [!Ref 'AWS::StackName']]
+            - Key: Network
+              Value: Public
+      
+      GatewayToInternet:
+        Type: 'AWS::EC2::VPCGatewayAttachment'
+        Properties:
+          VpcId: !Ref PriyaVPC
+          InternetGatewayId: !Ref PriyaInternetGateway
+      
+      PublicRouteTable:
+        Type: 'AWS::EC2::RouteTable'
+        Properties:
+          VpcId: !Ref PriyaVPC
+          Tags:
+            - Key: Network
+              Value: Public
+      
+      PublicRoute:
+        Type: 'AWS::EC2::Route'
+        DependsOn: GatewayToInternet
+        Properties:
+          RouteTableId: !Ref PriyaPublicRouteTable
+          DestinationCidrBlock: 0.0.0.0/0
+          GatewayId: !Ref InternetGateway
+     
+      PublicSubnet1RouteTableAssociation:
+        Type: 'AWS::EC2::SubnetRouteTableAssociation'
+        Properties:
+          SubnetId: !Ref PriyaPublicSubnet1
+          RouteTableId: !Ref PriyaPublicRouteTable
+     
+      PublicSubnet2RouteTableAssociation:
+        Type: 'AWS::EC2::SubnetRouteTableAssociation'
+        Properties:
+          SubnetId: !Ref PriyaPublicSubnet2
+          RouteTableId: !Ref PriyaPublicRouteTable
+     
+      NatGateway:
+        Type: "AWS::EC2::NatGateway"
+        DependsOn: NatPublicIP
+        Properties: 
+          AllocationId: !GetAtt NatPublicIP.AllocationId
+          SubnetId: !Ref PriyaPublicSubnet1
+     
+      NatPublicIP:
+        Type: "AWS::EC2::EIP"
+        DependsOn: PubPrivateVPC
+        Properties:
+          Domain: vpc
+     
+      PrivateRouteTable:
+        Type: 'AWS::EC2::RouteTable'
+        Properties:
+          VpcId: !Ref PriyaPubPrivateVPC
+          Tags:
+            - Key: Network
+              Value: Private
+      
+      PrivateRoute:
+        Type: 'AWS::EC2::Route'
+        Properties:
+          RouteTableId: !Ref PriyaPrivateRouteTable
+          DestinationCidrBlock: 0.0.0.0/0
+          NatGatewayId: !Ref NatGateway
+     
+      PrivateSubnet1RouteTableAssociation:
+        Type: 'AWS::EC2::SubnetRouteTableAssociation'
+        Properties:
+          SubnetId: !Ref PriyaPrivateSubnet1
+          RouteTableId: !Ref PriyaPrivateRouteTable
+     
+      PrivateSubnet2RouteTableAssociation:
+        Type: 'AWS::EC2::SubnetRouteTableAssociation'
+        Properties:
+          SubnetId: !Ref PriyaPrivateSubnet2
+          RouteTableId: !Ref PriyaPrivateRouteTable
