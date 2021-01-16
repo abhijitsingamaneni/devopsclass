@@ -1,104 +1,163 @@
+AWSTemplateFormatVersion: 2010-09-09
 
-    Resources:
-      AnushaVPC:
-        Type: AWS::EC2::VPC
-        Properties:
-          CidrBlock: 10.0.0.0/16
-          Tags:
-          - Key: Name
-            Value:  !Join ['', [!Ref "AWS::StackName", "-VPC" ]]
+Description: >
+  This CloudFormation template deploys a basic VPC
+  It deploys a VPC with 2 subnets (1 public, 1 private) across 2 Availability Zones
+  A NAT Gateway is used to provide egress for private subnets.
+  The VPC and subnets are exported for use by other stacks.
 
-      AnushaPublicSubnet:
-        Type: AWS::EC2::Subnet
-        Properties:
-          VpcId: !Ref AnushaVPC
-          AvailabilityZone: !Select [ 0, !GetAZs ]
-          CidrBlock: 10.0.0.0/25
-          MapPublicIpOnLaunch: true
-          Tags:
-          - Key: Name
-            Value: !Sub ${AWS::StackName}-Public
+#Adding parameters
+Parameters:
+  EnvironmentName:
+    Description: An environment name that will be prefixed to resource names
+    Type: String
 
-      AnushaPrivateSubnet:
-        Type: AWS::EC2::Subnet
-        Properties:
-          VpcId: !Ref AnushaVPC
-          AvailabilityZone: !Select [ 1, !GetAZs ]
-          CidrBlock: 10.0.0.128/25
-          MapPublicIpOnLaunch: false
-          Tags:
-          - Key: Name
-            Value: !Sub ${AWS::StackName}-Private
+  VpcCIDR:
+    Description: Please enter the IP range (CIDR notation) for this VPC
+    Type: String
+    Default: 10.192.0.0/16
 
-      AnushaIG:
-        Type: AWS::EC2::InternetGateway
-        Properties:
-          Tags:
-          - Key: Name
-            Value: !Join [_, [!Ref 'AWS::StackName']]
+  PublicSubnetCIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the Availability Zone
+    Type: String
+    Default: 10.192.10.0/24
 
-      GatewayToInternet:
-        Type: AWS::EC2::VPCGatewayAttachment
-        Properties:
-          VpcId: !Ref AnushaVPC
-          InternetGatewayId: !Ref AnushaIG
+  PrivateSubnetCIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet in the Availability Zone
+    Type: String
+    Default: 10.192.20.0/24
 
-      PublicRouteTable:
-        Type: AWS::EC2::RouteTable
-        Properties:
-          VpcId: !Ref AnushaVPC
-          Tags:
-          - Key: Name
-            Value: Public
+#Adding Resources
+Resources:
+# First, a VPC:
+  AnushaVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
 
-      PublicRoute:
-        Type: AWS::EC2::Route
-        DependsOn: GatewayToInternet
-        Properties:
-          RouteTableId: !Ref PublicRouteTable
-          DestinationCidrBlock: 0.0.0.0/0
-          GatewayId: !Ref AnushaIG
+#Adding InternetGateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
 
-      PublicSubnetRouteTableAssociation:
-        Type: AWS::EC2::SubnetRouteTableAssociation
-        Properties:
-          SubnetId: !Ref AnushaPublicSubnet
-          RouteTableId: !Ref PublicRouteTable
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref AnushaVPC
 
-      NatGateway:
-        Type: AWS::EC2::NatGateway
-        DependsOn: NatPublicIP
-        Properties:
-          AllocationId: !GetAtt NatPublicIP.AllocationId
-          SubnetId: !Ref AnushaPublicSubnet
-          Tags:
-          - Key: Name
-            Value: !Sub NAT-${AWS::StackName}
+#Adding Public and Private subnets
+  AnushaPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AnushaVPC
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: !Ref PublicSubnetCIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet
 
-      NatPublicIP:
-        Type: AWS::EC2::EIP
-        DependsOn: AnushaVPC
-        Properties:
-          Domain: vpc
+  AnushaPrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AnushaVPC
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: !Ref PrivateSubnetCIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet
 
-      PrivateRouteTable:
-        Type: AWS::EC2::RouteTable
-        Properties:
-          VpcId: !Ref AnushaVPC
-          Tags:
-          - Key: Name
-            Value: Private
+#Adding NATGateway EIP
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
 
-      PrivateRoute:
-        Type: AWS::EC2::Route
-        Properties:
-          RouteTableId: !Ref PrivateRouteTable
-          DestinationCidrBlock: 0.0.0.0/0
-          NatGatewayId: !Ref NatGateway
+#Adding NATGateway
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref AnushaPublicSubnet
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
 
-      PrivateSubnetRouteTableAssociation:
-        Type: AWS::EC2::SubnetRouteTableAssociation
-        Properties:
-          SubnetId: !Ref AnushaPrivateSubnet
-          RouteTableId: !Ref PrivateRouteTable
+#Adding Public Route Table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref AnushaVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Routes
 
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+#Adding Public subnet to the public route table
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref AnushaPublicSubnet
+
+#Adding Private Route Table
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref AnushaVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes
+
+  DefaultPrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+#Adding Private subnet to the private route table
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref AnushaPrivateSubnet
+
+#Adding outputs
+Outputs:
+  AnushaVPC:
+    Description: A reference to the created VPC
+    Value: !Ref AnushaVPC
+
+  PublicSubnets:
+    Description: A list of the public subnets
+    Value: !Join [",", [!Ref AnushaPublicSubnet]]
+
+  PrivateSubnets:
+    Description: A list of the private subnets
+    Value: !Join [",", [!Ref AnushaPrivateSubnet]]
+
+  AnushaPublicSubnet:
+    Description: A reference to the public subnet in the 1st Availability Zone
+    Value: !Ref AnushaPublicSubnet
+
+  AnushaPrivateSubnet:
+    Description: A reference to the private subnet in the next Availability Zone
+    Value: !Ref AnushaPrivateSubnet
