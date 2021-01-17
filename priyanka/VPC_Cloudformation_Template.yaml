@@ -1,19 +1,20 @@
-# Usage:
-    #   aws cloudformation --region <region> create-stack --stack-name <stack name> --template-body file://vpc-fargate.yaml
-    
-    # This template will:
-    #   Create a VPC with:
+# creating VPC cloudformation template:
+
+    #   Creating a VPC with:
     #       2 Public Subnets
     #       2 Private Subnets
     #   An Internet Gateway (with routes to it for Public Subnets)
     #   A NAT Gateway for outbound access (with routes from Private Subnets set to use it)
-    #     
+
+
+    #creating a VPC:
     Resources:
       PubPrivateVPC:
         Type: 'AWS::EC2::VPC'
         Properties:
           CidrBlock: 172.31.0.0/16
-     
+          
+     #creating 1st publicsubnet
       PublicSubnet1:
         Type: 'AWS::EC2::Subnet'
         Properties:
@@ -21,7 +22,8 @@
           AvailabilityZone: us-east-1a
           CidrBlock: 172.31.1.0/24
           MapPublicIpOnLaunch: true
-     
+
+     #creating 2nd publicsubnet
       PublicSubnet2:
         Type: 'AWS::EC2::Subnet'
         Properties:
@@ -30,6 +32,7 @@
           CidrBlock: 172.31.2.0/24
           MapPublicIpOnLaunch: true
      
+     #creating 1st privatesubnet
       PrivateSubnet1:
         Type: 'AWS::EC2::Subnet'
         Properties:
@@ -38,6 +41,7 @@
           CidrBlock: 172.31.3.0/24
           MapPublicIpOnLaunch: false
      
+     #creating 2nd privatesubnet
       PrivateSubnet2:
         Type: 'AWS::EC2::Subnet'
         Properties:
@@ -46,7 +50,7 @@
           CidrBlock: 172.31.4.0/24
           MapPublicIpOnLaunch: false
      
-      
+      #Internet access for VPC
       InternetGateway:
         Type: 'AWS::EC2::InternetGateway'
         Properties:
@@ -61,7 +65,8 @@
         Properties:
           VpcId: !Ref PriyaVPC
           InternetGatewayId: !Ref PriyaInternetGateway
-      
+
+      #creating public routetables for subnets:
       PublicRouteTable:
         Type: 'AWS::EC2::RouteTable'
         Properties:
@@ -70,7 +75,7 @@
             - Key: Network
               Value: Public
       
-      PublicRoute:
+      PublicRoute: #public route table has direct routing to IG
         Type: 'AWS::EC2::Route'
         DependsOn: GatewayToInternet
         Properties:
@@ -78,6 +83,7 @@
           DestinationCidrBlock: 0.0.0.0/0
           GatewayId: !Ref InternetGateway
      
+     #Attaching public subnets to public routetables
       PublicSubnet1RouteTableAssociation:
         Type: 'AWS::EC2::SubnetRouteTableAssociation'
         Properties:
@@ -89,7 +95,8 @@
         Properties:
           SubnetId: !Ref PriyaPublicSubnet2
           RouteTableId: !Ref PriyaPublicRouteTable
-     
+
+     #creating NAT gateway
       NatGateway:
         Type: "AWS::EC2::NatGateway"
         DependsOn: NatPublicIP
@@ -103,6 +110,7 @@
         Properties:
           Domain: vpc
      
+     #creating private routetable
       PrivateRouteTable:
         Type: 'AWS::EC2::RouteTable'
         Properties:
@@ -118,6 +126,7 @@
           DestinationCidrBlock: 0.0.0.0/0
           NatGatewayId: !Ref NatGateway
      
+     #attaching private subnet to private route tables
       PrivateSubnet1RouteTableAssociation:
         Type: 'AWS::EC2::SubnetRouteTableAssociation'
         Properties:
