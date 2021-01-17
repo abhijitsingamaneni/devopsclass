@@ -1,59 +1,175 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: My first cloudformation template
+
+#define the parameters needed for the cloudformation
+Parameters:
+
+  PrivateRouteTableName:
+    Type: String
+    Description: Private route table name :must be Private
+    Default: Private
+    
+  PublicRouteTableName:
+    Type: String
+    Description: Public route table name :must be Public
+    Default: Public
+    
+  VpcCIDR:
+    Type: String
+    Default: 10.0.0.0/16
+
+  PublicSubnetCIDR:
+    Type: String
+    Default: 10.0.0.0/25
+    
+  PrivateSubnetCIDR:
+    Type: String
+    Default: 10.0.0.128/25 
+    
+  DestinationCidrBlock:
+    Type: String
+    Description:
+    Default: 0.0.0.0/0
+
+#create the resources needed
 Resources:
-      Gautam:
-        Type: AWS::EC2::VPC
-        Properties:
-          CidrBlock: 10.0.0.0/16
-          Tags:
-          - Key: Name
-            Value:  !Join ['', [!Ref "AWS::StackName", "-VPC" ]]
+  # creating a VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      Tags:
+      - Key: Name
+        Value: !Join ['', [!Ref "AWS::StackName", "-VPC" ]]
+        
+  # Creating public Subnet
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs ]
+      CidrBlock: !Ref PublicSubnetCIDR
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-Public
+        
+  # Creating a public Subnet
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Condition: BuildPrivate
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs ]
+      CidrBlock: !Ref PrivateSubnetCIDR
+      Tags:
+      - Key: Name
+        Value: !Sub ${AWS::StackName}-Private
+        
+  # create internet gateway for the created VPC
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Join [_, [!Ref 'AWS::StackName']]
 
-      AnushaPublicSubnet:
-        Type: AWS::EC2::Subnet
-        Properties:
-          VpcId: !Ref Gautam
-          AvailabilityZone: !Select [ 0, !GetAZs ]
-          CidrBlock: 10.0.0.0/25
-          MapPublicIpOnLaunch: true
-          Tags:
-          - Key: Name
-            Value: !Sub ${AWS::StackName}-Public
+  GatewayToInternet:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref IG
+      
+  #creating public Route table for the Subnet
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Ref PublicRouteTableName
 
-      AnushaPrivateSubnet:
-        Type: AWS::EC2::Subnet
-        Properties:
-          VpcId: !Ref Gautam
-          AvailabilityZone: !Select [ 1, !GetAZs ]
-          CidrBlock: 10.0.0.128/25
-          MapPublicIpOnLaunch: false
-          Tags:
-          - Key: Name
-            Value: !Sub ${AWS::StackName}-Private
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayToInternet
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IG
+      
+  # A NAT Gateway will be built and used if the user selected Private subnets and a Gateway instead of an EC2 instance. 
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    DependsOn: NatPublicIP
+    Properties:
+      AllocationId: !GetAtt NatPublicIP.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+      - Key: Name
+        Value: !Sub NAT-${AWS::StackName}
+        
+  ElasticIPAddress:
+    Type: AWS::EC2::EIP
+    Condition: BuildNATGateway
+    Properties:
+      Domain: VPC       
+      
+  NatPublicIP:
+    Type: AWS::EC2::EIP
+    DependsOn: VPC
+    Properties:
+      Domain: vpc
+      
+  #creating private Route table for the Subnet
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Ref PrivateRouteTableName
 
-      GautamIG:
-        Type: AWS::EC2::InternetGateway
-        Properties:
-          Tags:
-          - Key: Name
-            Value: !Join [_, [!Ref 'AWS::StackName']]
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: !Ref DestinationCidrBlock
+      NatGatewayId: !Ref NatGateway
 
-      GatewayToInternet:
-        Type: AWS::EC2::VPCGatewayAttachment
-        Properties:
-          VpcId: !Ref Gautam
-          InternetGatewayId: !Ref GautamIG
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref PrivateRouteTable
 
-      PublicRouteTable:
-        Type: AWS::EC2::RouteTable
-        Properties:
-          VpcId: !Ref Gautam
-          Tags:
-          - Key: Name
-            Value: Public
-
-      PublicRoute:
-        Type: AWS::EC2::Route
-        DependsOn: GatewayToInternet
-        Properties:
-          RouteTableId: !Ref PublicRouteTable
-          DestinationCidrBlock: 0.0.0.0/0
-          GatewayId: !Ref GautamIG
+  # Attaching the public and private subnet to the route table.
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+  PrivateSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: BuildPrivate
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref PrivateRouteTable
+  
+  
+Outputs:
+  VPC:
+    Description: VPC of the base network
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${AWS::StackName}-VPC
+  PublicSubnet:
+    Description: First Public Subnet
+    Value: !Ref PublicSubnet
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicSubnet
+  PrivateSubnet:
+    Condition: BuildPrivateSubnets
+    Description: First Private Subnet
+    Value: !Ref PrivateSubnet
+    Export:
+      Name: !Sub ${AWS::StackName}-PrivateSubnet
