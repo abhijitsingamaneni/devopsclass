@@ -1,3 +1,5 @@
+
+# This CloudFormation template deploys a basic VPC / Network.
 Resources:
       Nikhi:
         Type: AWS::EC2::VPC
@@ -6,7 +8,9 @@ Resources:
           Tags:
           - Key: Name
             Value:  !Join ['', [!Ref "AWS::StackName", "-VPC" ]]
+#First VPC created above
 
+#Now creating a public subnet
       NikhiPublicSubnet:
         Type: AWS::EC2::Subnet
         Properties:
@@ -18,6 +22,7 @@ Resources:
           - Key: Name
             Value: !Sub ${AWS::StackName}-Public
 
+#Now creating a public subnet
       NikhiPrivateSubnet:
         Type: AWS::EC2::Subnet
         Properties:
@@ -29,6 +34,7 @@ Resources:
           - Key: Name
             Value: !Sub ${AWS::StackName}-Private
 
+#To provide Internet access for the NikhiVPC created.
       NikhiIG:
         Type: AWS::EC2::InternetGateway
         Properties:
@@ -42,6 +48,8 @@ Resources:
           VpcId: !Ref Nikhi
           InternetGatewayId: !Ref NikhiIG
 
+
+#Public Route table for the VPC Nikhi
       PublicRouteTable:
         Type: AWS::EC2::RouteTable
         Properties:
@@ -50,6 +58,7 @@ Resources:
           - Key: Name
             Value: Public
 
+#Private Route table for the VPC Nikhi
       PublicRoute:
         Type: AWS::EC2::Route
         DependsOn: GatewayToInternet
