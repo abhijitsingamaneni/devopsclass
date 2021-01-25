@@ -1,0 +1,30 @@
+Docker
+
+Docker commands:
+
+•	#docker –version  :  tells installed docker version
+
+•	#sudo docker pull <image name> : pulls images from central docker repo
+
+•	#sudo docker image:  lists images
+
+•	#sudo run <image name> :  to run the containers from image
+
+•	#sudo docker run -it -d <image name> :  runs the container
+
+•	#sudo docker ps -a : lists all running containers (stopped commands too)
+
+•	#sudo docker exec -it <container id> bash  :  for accessing the container
+
+•	#sudo docker commit <container id> < name>  :  new image is created which can be seen under docker images with same name as passed in command 
+
+•	#sudo  docker stop <container id>  :  to stop a container
+
+•	#sudo docker kill <container id>  :  stops execution
+
+•	#sudo docker rm <container id> :  to delete a container
+
+•	*To delete a container, we should stop and delete. Command used is:
+#sudo docker rm -f <container id>
+
+•	#sudo docker rmi <image id>  :  to remove image from system
