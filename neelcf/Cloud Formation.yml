@@ -1,0 +1,114 @@
+    Resources:
+      #my first VPC:
+      VPC:
+        Type: AWS::EC2::VPC
+        Properties:
+          CidrBlock: 10.0.0.0/16
+          Tags:
+          - Key: Name
+            Value: VPC1
+
+      #my first public subnet:
+      PublicSubnet:
+        Type: AWS::EC2::Subnet
+        Properties:
+          VpcId: !Ref VPC
+          CidrBlock: 10.0.0.0/24
+          AvailabilityZone: !Select [0,!GetAZs ] #Get the first AZ in the list
+          MapPublicIpOnLaunch: true
+          Tags:
+          - Key: Name
+            Value: publicsubnet1
+
+      #my first private subnet:
+      PrivateSubnet:
+        Type: AWS::EC2::Subnet
+        Properties:
+          VpcId: !Ref VPC
+          CidrBlock: 10.0.1.0/24
+          AvailabilityZone: !Select [ 1, !GetAZs ] #Get the first AZ in the list
+          MapPublicIpOnLaunch: false
+          Tags:
+          - Key: Name
+            Value: privatesubnet1
+
+      #my first IG:
+      InternetGateway:
+        Type: AWS::EC2::InternetGateway
+        DependsOn: VPC
+        Properties:
+          Tags:
+          - Key: Name
+            Value: IG1
+
+      AttachGateway:
+        Type: AWS::EC2::VPCGatewayAttachment
+        # Notice how you can't attach an IGW to a VPC unless both are created:
+        Properties:
+          VpcId: !Ref VPC
+          InternetGatewayId: !Ref InternetGateway
+
+      #my first public route table:
+      PublicRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+          VpcId: !Ref VPC
+          Tags:
+          - Key: Name
+            Value: publicroutetable1
+
+      PublicRoute: # Public route table has direct routing to IGW:
+        Type: AWS::EC2::Route
+        DependsOn: AttachGateway
+        Properties:
+          RouteTableId: !Ref PublicRouteTable
+          DestinationCidrBlock: 0.0.0.0/0
+          GatewayId: !Ref InternetGateway
+
+      #attach pulic subnet to public route table:
+      PublicSubnetRouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+          SubnetId: !Ref PublicSubnet
+          RouteTableId: !Ref PublicRouteTable
+
+      #my first NG:
+      NATGateway:
+        Type: AWS::EC2::NatGateway
+        DependsOn: ElasticIPAddress
+        Properties:
+          AllocationId: !GetAtt ElasticIPAddress.AllocationId
+          SubnetId: !Ref PublicSubnet
+          Tags:
+          - Key: Name
+            Value: NG1
+
+      ElasticIPAddress:
+        Type: AWS::EC2::EIP
+        DependsOn: VPC
+        Properties:
+          Domain: VPC
+
+      #my first private route table:
+      PrivateRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+          VpcId: !Ref VPC
+          Tags:
+          - Key: Name
+            Value: PrivateRouteTable1
+
+      PrivateRoute:    # Private route table can access web via NAT (created below)
+        Type: AWS::EC2::Route
+        Properties:
+          RouteTableId: !Ref PrivateRouteTable
+          DestinationCidrBlock: 0.0.0.0/0
+          # Route traffic through the NAT Gateway:
+          NatGatewayId: !Ref NATGateway
+
+      #attach private subnet to private route table:
+      PrivateSubnetRouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+          SubnetId: !Ref PrivateSubnet
+          RouteTableId: !Ref PrivateRouteTable
