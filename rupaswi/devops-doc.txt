@@ -1,0 +1,24 @@
+
+Docker
+---------
+What is Docker?
+Consider the case where a devolper builds an application on his local machine that successfully runs on his machine. In the reatime, the next phase will be testing, so, he has to send all the application related frameworks, dependencies, libraries, packages and so on to the testing team in a jar file. Even though the testing team has all the software that is required to test the same application, they might get some issues when they try to run it. This might be because of different versions of software or the environment. To overcome these issues, docker is one of the best solutions where a developer can send a docker image(The required OS and all the dependencies packaged together with the application) to the testing team and they create docker containers (instances) of this docker images and run the application with no issues.
+ > The docker images are pushed to the docker hub(repository for the docker images) which are shared publicly that can be pulled to create docker containers.
+
+Difference between Docker container AND Virtual Machines?
+Virtual Machines are built on hardware and host OS. Vm's have guest os on which the applications are built. VM's take longer time to be created whereas docker containers are light-weight and are created in seconds. The resource usage of virtual machines is more compare to containers.
+
+Docker commands
+Docker version- To know the version of the docker
+docker ps-To know the number of running containers.
+docker images- to know the number of images
+docker run <image name>- to start run a container of that image
+docker stop <container ID>- to stop the container
+docker ps -a- to know both running and non running containers
+docker stop <container id | container name>-To stop containers
+docker rm <container id | container name>- To the delete the containers
+docker stop $(docker ps -aq)- to stop all the runnning containers at once
+docker rm $(docker ps -a -q) to delete all the containers
+docker rmi <image name>- to remove an image
+docker pull <image name>- to pull the image from the repo
+docker rmi $(docker images) - to delete all the images
