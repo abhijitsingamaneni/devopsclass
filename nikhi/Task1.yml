@@ -1,0 +1,68 @@
+
+# This CloudFormation template deploys a basic VPC / Network.
+Resources:
+      Nikhi:
+        Type: AWS::EC2::VPC
+        Properties:
+          CidrBlock: 10.0.0.0/16
+          Tags:
+          - Key: Name
+            Value:  !Join ['', [!Ref "AWS::StackName", "-VPC" ]]
+#First VPC created above
+
+#Now creating a public subnet
+      NikhiPublicSubnet:
+        Type: AWS::EC2::Subnet
+        Properties:
+          VpcId: !Ref Nikhi
+          AvailabilityZone: !Select [ 0, !GetAZs ]
+          CidrBlock: 10.0.0.0/25
+          MapPublicIpOnLaunch: true
+          Tags:
+          - Key: Name
+            Value: !Sub ${AWS::StackName}-Public
+
+#Now creating a public subnet
+      NikhiPrivateSubnet:
+        Type: AWS::EC2::Subnet
+        Properties:
+          VpcId: !Ref Nikhi
+          AvailabilityZone: !Select [ 1, !GetAZs ]
+          CidrBlock: 10.0.0.128/25
+          MapPublicIpOnLaunch: false
+          Tags:
+          - Key: Name
+            Value: !Sub ${AWS::StackName}-Private
+
+#To provide Internet access for the NikhiVPC created.
+      NikhiIG:
+        Type: AWS::EC2::InternetGateway
+        Properties:
+          Tags:
+          - Key: Name
+            Value: !Join [_, [!Ref 'AWS::StackName']]
+
+      GatewayToInternet:
+        Type: AWS::EC2::VPCGatewayAttachment
+        Properties:
+          VpcId: !Ref Nikhi
+          InternetGatewayId: !Ref NikhiIG
+
+
+#Public Route table for the VPC Nikhi
+      PublicRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+          VpcId: !Ref Nikhi
+          Tags:
+          - Key: Name
+            Value: Public
+
+#Private Route table for the VPC Nikhi
+      PublicRoute:
+        Type: AWS::EC2::Route
+        DependsOn: GatewayToInternet
+        Properties:
+          RouteTableId: !Ref PublicRouteTable
+          DestinationCidrBlock: 0.0.0.0/0
+          GatewayId: !Ref NikhiIG
