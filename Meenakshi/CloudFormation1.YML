@@ -1,0 +1,197 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+#  This CloudFormation template deploys a VPC/ Network.
+# It deploys a VPC, 1 public and 1 private subnet
+
+Metadata:
+  # This control the UI display when running the template from the AWS management console
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Network Configuration"
+        Parameters:
+          - NumberOfAZs
+          - PrivateSubnets
+          - NATType
+
+ Parameters:
+   PrivateSubnets:
+     Type: String
+     AllowedValues:
+    - True
+    - False
+    Default: True
+    Description: Do you want to create private subnets in addition to public subnets?
+
+ NumberOfAZs:
+    Type: Number
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+    Default: 2
+    Description:  How many Availability Zones do you wish to utilize?
+
+  NATType:
+    Type: String
+    AllowedValues:
+    - "EC2 NAT Instance"
+    - "NAT Gateway"
+    Default:  "NAT Gateway"
+    Description:  What type of NAT to use for private instances to communicate with the internet.  A single EC2 instance can be used as a NAT, or you can use the AWS NAT Gateway (managed, scalable, more expensive).  This setting will be IGNORED if you do not build private subnets.
+
+  Mappings:
+    #  This is the Amazon Linux 2 AMI.  Adjust these values as needed, they can change a few times per year:
+    AmazonLinuxAMI:
+      us-east-1:
+        AMI: ami-04681a1dbd79675a5    # N Virginia
+      us-east-2:
+        AMI: ami-0cf31d971a3ca20d6    # Ohio
+      us-west-1:
+        AMI: ami-0782017a917e973e7    # N California
+      us-west-2:
+        AMI: ami-6cd6f714             # Oregon
+      eu-west-1:
+        AMI: ami-0bdb1d6c15a40392c    # Ireland
+      eu-central-1:
+        AMI: ami-0f5dbc86dd9cbf7a8    # Frankfurt
+      sa-east-1:
+        AMI: ami-0ad7b0031d41ed4b9    # Sao Paulo
+      ap-southeast-1:
+        AMI: ami-01da99628f381e50a    # Singaport
+      ap-southeast-2:
+        AMI: ami-00e17d1165b9dd3ec    # Sydney
+      ap-northeast-1:
+        AMI: ami-08847abae18baa040    # Tokyo
+
+     Resources:
+
+       # Creating a VPC
+       FirstVPC:
+         Type: AWS::EC2::FirstVPC
+         Properties:
+           VpcId: !Ref FirstVPC
+           AvailabilityZone: !Select [0, !GetAZs ]
+           CidrBlock: 10.0.0.0/16
+           Tags:
+           - Key: Name
+             Value: !Join ['', [!Ref "AWS::StackName", "-VPC" ]]
+
+       # Creating a PublicSubnet
+       FirstPublicSubnet:
+         Type: AWS::EC2::Subnet
+         Properties:
+           VpcId: !Ref FirstVPC
+           AvailabilityZone: !Select [ 0, !GetAZs ]
+           CidrBlock: 10.0.0.0/24
+           MapPublicIpOnLaunch: true
+           Tags:
+           - Key: Name
+             Value: !Sub ${AWS::StackName}-Public
+
+       # Creating a PrivateSubnet
+       FirstPrivateSubnet:
+         Type: AWS::EC2::Subnet
+         Properties:
+           VpcId: !Ref FirstVPC
+           AvailabilityZone: !Select [ 1, !GetAZs ]
+           CidrBlock: 10.0.1.0/24
+           MapPublicIpOnLaunch: false
+           Tags:
+           - Key: Name
+             Value: !Sub ${AWS::StackName}-Private
+
+      # Creating a InternetGateway as VPC needs internet access
+      FirstInternetGateway:
+        Type: AWS::EC2::InternetGateway
+        DependsOn: FirstVPC
+      AttachGateway:
+        Type: AWS::EC2::VPCGatewayAttachment
+        # Notice how you can't attach an IGW to a VPC unless both are created:
+        Properties:
+          VpcId: !Ref FirstVPC
+          InternetGatewayId: !Ref FirstInternetGateway
+
+      # Route tables for the PublicSubnet
+      PublicRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+          VpcId: !Ref FirstVPC
+          Tags:
+          - Key: Name
+            Value: Public
+      PublicRoute:   # Public route table has direct routing to IGW:
+        Type: AWS::EC2::Route
+        DependsOn: AttachGateway
+        Properties:
+          RouteTableId: !Ref PublicRouteTable
+          DestinationCidrBlock: 0.0.0.0/0
+          GatewayId: !Ref FirstInternetGateway
+
+      # Public subnets are attached to the route tables
+      PublicSubnetRouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+          SubnetId: !Ref FirstPublicSubnet
+          RouteTableId: !Ref PublicRouteTable
+
+      # NAT gateway
+      NatGateway:
+        Type: AWS::EC2::NatGateway
+        DependsOn: NatPublicIP
+        Properties:
+          AllocationId: !GetAtt NatPublicIP.AllocationId
+          SubnetId: !Ref FirstPublicSubnet
+          Tags:
+          - Key: Name
+            Value: !Sub NAT-${AWS::StackName}
+
+      NatPublicIP:
+        Type: AWS::EC2::EIP
+        DependsOn: FirstVPC
+        Properties:
+          Domain: vpc
+
+      # Private Route table
+      PrivateRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+          VpcId: !Ref FirstVPC
+          Tags:
+          - Key: Name
+            Value: Private
+
+      # Private Route can access web through NAT
+      PrivateRoute:
+        Type: AWS::EC2::Route
+        Properties:
+          RouteTableId: !Ref PrivateRouteTable
+          DestinationCidrBlock: 0.0.0.0/0
+          NatGatewayId: !Ref NatGateway
+
+      #  Attaching the Private Subnets to private route tables
+      PrivateSubnetRouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+          SubnetId: !Ref FirstPrivateSubnet
+          RouteTableId: !Ref PrivateRouteTable
+
+
+  # Outputs of the VPC and subnets
+  Outputs:
+    VPC:
+      Description: VPC of the base network
+      Value: !Ref FirstVPC
+      Export:
+        Name: !Sub ${AWS::StackName}-VPC
+    FirstPublicSubnet:
+      Description: First Public Subnet
+      Value: !Ref FirstPublicSubnet
+      Export:
+        Name: !Sub ${AWS::StackName}-FirstPublicSubnet
+    FirstPrivateSubnet:
+      Condition: BuildPrivateSubnets
+      Description: First Private Subnet
+      Value: !Ref FirstPrivateSubnet
+      Export:
+        Name: !Sub ${AWS::StackName}-FirstPrivateSubnet
