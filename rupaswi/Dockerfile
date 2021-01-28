@@ -1,5 +1,5 @@
 FROM ubuntu:latest
-MAINTAINER rupa
+MAINTAINER anusha
 RUN apt-get update
 RUN apt upgrade -y
 WORKDIR /
