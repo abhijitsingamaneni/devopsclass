@@ -1,0 +1,10 @@
+From ubuntu
+MAINTAINER lasya
+ENV dir=/cicd
+WORKDIR /
+RUN apt-get update
+RUN apt-get upgrade -y
+CMD ["echo","----------start-------"]
+CMD ["echo","darename "]
+CMD ["echo","Hello World this is new "]
+CMD ["echo","----------End----------"]
